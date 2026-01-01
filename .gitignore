@@ -85,6 +85,45 @@ FOV.Filled = false
 FOV.Color = Color3.fromRGB(255,0,0)
 FOV.Visible = true
 
+-- MENU 버튼
+local menuBtn = Instance.new("TextButton", gui)
+menuBtn.Size = UDim2.new(0,180,0,45)
+menuBtn.Position = UDim2.new(0.05,0,0.40,-55)
+menuBtn.Text = "MENU"
+menuBtn.TextScaled = true
+menuBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+menuBtn.TextColor3 = Color3.new(1,1,1)
+menuBtn.ZIndex = 5
+
+-- 입력 차단 프레임
+local inputBlocker = Instance.new("Frame", gui)
+inputBlocker.Size = UDim2.new(1,0,1,0)
+inputBlocker.Position = UDim2.new(0,0,0,0)
+inputBlocker.BackgroundTransparency = 1
+inputBlocker.Visible = false
+inputBlocker.Active = true -- ⭐ 입력 가로채기
+inputBlocker.ZIndex = 1
+
+-- UI 묶기
+local uiObjects = {
+	aimbotBtn,
+	wallBtn,
+	sliderFrame,
+}
+
+-- MENU 버튼 토글 로직
+local menuOpen = true
+
+menuBtn.MouseButton1Click:Connect(function()
+	menuOpen = not menuOpen
+
+	for _,ui in pairs(uiObjects) do
+		ui.Visible = menuOpen
+	end
+
+	inputBlocker.Visible = menuOpen -- UI 열렸을 때 입력 차단
+end)
+
 -------------------------------------------------
 -- 유틸
 -------------------------------------------------
