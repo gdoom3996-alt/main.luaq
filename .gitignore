@@ -19,6 +19,13 @@ local AIM_SPEED = 250
 local AIMBOT = false
 local WALLCHECK = true
 
+inputBlocker.ZIndex = 1
+aimbotBtn.ZIndex = 5
+wallBtn.ZIndex = 5
+menuBtn.ZIndex = 5
+speedSlider.ZIndex = 5
+fovSlider.ZIndex = 5
+
 -------------------------------------------------
 -- GUI
 -------------------------------------------------
@@ -45,34 +52,51 @@ wallBtn.TextColor3 = Color3.new(1,1,1)
 -------------------------------------------------
 -- FOV 슬라이더
 -------------------------------------------------
-local sliderFrame = Instance.new("Frame", gui)
-sliderFrame.Size = UDim2.new(0,180,0,40)
-sliderFrame.Position = UDim2.new(0.05,0,0.40,115)
-sliderFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+local dragging = false
 
-local sliderBar = Instance.new("Frame", sliderFrame)
-sliderBar.Size = UDim2.new(1,-20,0,6)
-sliderBar.Position = UDim2.new(0,10,0.5,-3)
-sliderBar.BackgroundColor3 = Color3.fromRGB(80,80,80)
+local function updateSlider(input)
+	local x = math.clamp(
+		(input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X,
+		0, 1
+	)
+	knob.Position = UDim2.new(x, -9, -0.25, 0)
+	local val = math.floor(min + (max - min) * x)
+	label.Text = text .. ": " .. val
+	callback(val)
+end
 
-local sliderKnob = Instance.new("Frame", sliderBar)
-sliderKnob.Size = UDim2.new(0,12,0,18)
-sliderKnob.AnchorPoint = Vector2.new(0.5,0.5)
-sliderKnob.Position = UDim2.new(
-	(FOV_RADIUS - FOV_MIN) / (FOV_MAX - FOV_MIN),
-	0,
-	0.5,
-	0
-)
-sliderKnob.BackgroundColor3 = Color3.fromRGB(200,200,200)
+knob.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		updateSlider(input)
+	end
+end)
 
-local sliderText = Instance.new("TextLabel", sliderFrame)
-sliderText.Size = UDim2.new(1,0,0,18)
-sliderText.Position = UDim2.new(0,0,0,-18)
-sliderText.Text = "FOV : "..FOV_RADIUS
-sliderText.TextScaled = true
-sliderText.BackgroundTransparency = 1
-sliderText.TextColor3 = Color3.new(1,1,1)
+knob.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+bar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		updateSlider(input)
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if dragging and (
+		input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch
+	) then
+		updateSlider(input)
+	end
+end)
+bar.Size = UDim2.new(1,0,0.35,0),
+knob.Size = UDim2.new(0, 26, 1.6, 0)
 
 -------------------------------------------------
 -- FOV 원
