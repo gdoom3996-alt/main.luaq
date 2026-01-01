@@ -19,13 +19,6 @@ local AIM_SPEED = 250
 local AIMBOT = false
 local WALLCHECK = true
 
-inputBlocker.ZIndex = 1
-aimbotBtn.ZIndex = 5
-wallBtn.ZIndex = 5
-menuBtn.ZIndex = 5
-speedSlider.ZIndex = 5
-fovSlider.ZIndex = 5
-
 -------------------------------------------------
 -- GUI
 -------------------------------------------------
@@ -50,53 +43,6 @@ wallBtn.BackgroundColor3 = Color3.fromRGB(0,120,0)
 wallBtn.TextColor3 = Color3.new(1,1,1)
 
 -------------------------------------------------
--- FOV 슬라이더
--------------------------------------------------
-local dragging = false
-
-local function updateSlider(input)
-	local x = math.clamp(
-		(input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X,
-		0, 1
-	)
-	knob.Position = UDim2.new(x, -9, -0.25, 0)
-	local val = math.floor(min + (max - min) * x)
-	label.Text = text .. ": " .. val
-	callback(val)
-end
-
-knob.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-	or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		updateSlider(input)
-	end
-end)
-
-knob.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-	or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = false
-	end
-end)
-
-bar.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		updateSlider(input)
-	end
-end)
-
-UIS.InputChanged:Connect(function(input)
-	if dragging and (
-		input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch
-	) then
-		updateSlider(input)
-	end
-end)
-
--------------------------------------------------
 -- FOV 원
 -------------------------------------------------
 local FOV = Drawing.new("Circle")
@@ -106,45 +52,6 @@ FOV.NumSides = 64
 FOV.Filled = false
 FOV.Color = Color3.fromRGB(255,0,0)
 FOV.Visible = true
-
--- MENU 버튼
-local menuBtn = Instance.new("TextButton", gui)
-menuBtn.Size = UDim2.new(0,180,0,45)
-menuBtn.Position = UDim2.new(0.05,0,0.40,-55)
-menuBtn.Text = "MENU"
-menuBtn.TextScaled = true
-menuBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-menuBtn.TextColor3 = Color3.new(1,1,1)
-menuBtn.ZIndex = 5
-
--- 입력 차단 프레임
-local inputBlocker = Instance.new("Frame", gui)
-inputBlocker.Size = UDim2.new(1,0,1,0)
-inputBlocker.Position = UDim2.new(0,0,0,0)
-inputBlocker.BackgroundTransparency = 1
-inputBlocker.Visible = false
-inputBlocker.Active = true -- ⭐ 입력 가로채기
-inputBlocker.ZIndex = 1
-
--- UI 묶기
-local uiObjects = {
-	aimbotBtn,
-	wallBtn,
-	sliderFrame,
-}
-
--- MENU 버튼 토글 로직
-local menuOpen = true
-
-menuBtn.MouseButton1Click:Connect(function()
-	menuOpen = not menuOpen
-
-	for _,ui in pairs(uiObjects) do
-		ui.Visible = menuOpen
-	end
-
-	inputBlocker.Visible = menuOpen -- UI 열렸을 때 입력 차단
-end)
 
 -------------------------------------------------
 -- 유틸
