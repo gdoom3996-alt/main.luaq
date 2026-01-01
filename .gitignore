@@ -26,6 +26,9 @@ menuBtn.ZIndex = 5
 speedSlider.ZIndex = 5
 fovSlider.ZIndex = 5
 
+bar.Size = UDim2.new(1,0,0.35,0)
+knob.Size = UDim2.new(0, 26, 1.6, 0)
+
 -------------------------------------------------
 -- GUI
 -------------------------------------------------
@@ -95,8 +98,6 @@ UIS.InputChanged:Connect(function(input)
 		updateSlider(input)
 	end
 end)
-bar.Size = UDim2.new(1,0,0.35,0),
-knob.Size = UDim2.new(0, 26, 1.6, 0)
 
 -------------------------------------------------
 -- FOV 원
