@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -11,7 +12,10 @@ local Camera = workspace.CurrentCamera
 -- 설정값
 -------------------------------------------------
 local FOV_RADIUS = 120
-local AIM_SPEED = 250   -- 🔥 10 ~ 300 이상 가능
+local FOV_MIN = 50
+local FOV_MAX = 300
+
+local AIM_SPEED = 250
 local AIMBOT = false
 local WALLCHECK = true
 
@@ -23,7 +27,7 @@ local gui = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
 -- AIMBOT 버튼
 local aimbotBtn = Instance.new("TextButton", gui)
 aimbotBtn.Size = UDim2.new(0,180,0,55)
-aimbotBtn.Position = UDim2.new(0.05,0,0.45,0)
+aimbotBtn.Position = UDim2.new(0.05,0,0.40,0)
 aimbotBtn.Text = "AIMBOT : OFF"
 aimbotBtn.TextScaled = true
 aimbotBtn.BackgroundColor3 = Color3.fromRGB(120,0,0)
@@ -32,11 +36,43 @@ aimbotBtn.TextColor3 = Color3.new(1,1,1)
 -- WallCheck 버튼
 local wallBtn = Instance.new("TextButton", gui)
 wallBtn.Size = UDim2.new(0,180,0,45)
-wallBtn.Position = UDim2.new(0.05,0,0.45,60)
+wallBtn.Position = UDim2.new(0.05,0,0.40,60)
 wallBtn.Text = "WALLCHECK : ON"
 wallBtn.TextScaled = true
 wallBtn.BackgroundColor3 = Color3.fromRGB(0,120,0)
 wallBtn.TextColor3 = Color3.new(1,1,1)
+
+-------------------------------------------------
+-- FOV 슬라이더
+-------------------------------------------------
+local sliderFrame = Instance.new("Frame", gui)
+sliderFrame.Size = UDim2.new(0,180,0,40)
+sliderFrame.Position = UDim2.new(0.05,0,0.40,115)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+
+local sliderBar = Instance.new("Frame", sliderFrame)
+sliderBar.Size = UDim2.new(1,-20,0,6)
+sliderBar.Position = UDim2.new(0,10,0.5,-3)
+sliderBar.BackgroundColor3 = Color3.fromRGB(80,80,80)
+
+local sliderKnob = Instance.new("Frame", sliderBar)
+sliderKnob.Size = UDim2.new(0,12,0,18)
+sliderKnob.AnchorPoint = Vector2.new(0.5,0.5)
+sliderKnob.Position = UDim2.new(
+	(FOV_RADIUS - FOV_MIN) / (FOV_MAX - FOV_MIN),
+	0,
+	0.5,
+	0
+)
+sliderKnob.BackgroundColor3 = Color3.fromRGB(200,200,200)
+
+local sliderText = Instance.new("TextLabel", sliderFrame)
+sliderText.Size = UDim2.new(1,0,0,18)
+sliderText.Position = UDim2.new(0,0,0,-18)
+sliderText.Text = "FOV : "..FOV_RADIUS
+sliderText.TextScaled = true
+sliderText.BackgroundTransparency = 1
+sliderText.TextColor3 = Color3.new(1,1,1)
 
 -------------------------------------------------
 -- FOV 원
@@ -50,12 +86,10 @@ FOV.Color = Color3.fromRGB(255,0,0)
 FOV.Visible = true
 
 -------------------------------------------------
--- 유틸 함수
+-- 유틸
 -------------------------------------------------
 local function wallCheck(head, char)
-	if not WALLCHECK then
-		return true
-	end
+	if not WALLCHECK then return true end
 
 	local origin = Camera.CFrame.Position
 	local dir = head.Position - origin
@@ -68,27 +102,22 @@ local function wallCheck(head, char)
 	return Workspace:Raycast(origin, dir, params) == nil
 end
 
-local function inFOV(worldPos)
-	local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
+local function inFOV(pos)
+	local screen, onScreen = Camera:WorldToViewportPoint(pos)
 	if not onScreen then return false end
 
-	local center = Vector2.new(
-		Camera.ViewportSize.X / 2,
-		Camera.ViewportSize.Y / 2
-	)
-
-	local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+	local dist = (Vector2.new(screen.X, screen.Y) - center).Magnitude
 	return dist <= FOV_RADIUS, dist
 end
 
 -------------------------------------------------
--- 타겟 탐색
+-- 타겟
 -------------------------------------------------
 local function getTarget()
-	local bestHead = nil
-	local bestDist = math.huge
+	local best, bestDist = nil, math.huge
 
-	for _, p in pairs(Players:GetPlayers()) do
+	for _,p in pairs(Players:GetPlayers()) do
 		if p ~= LP and p.Character then
 			local char = p.Character
 			local head = char:FindFirstChild("Head")
@@ -96,27 +125,26 @@ local function getTarget()
 
 			if head and hum and hum.Health > 0 then
 				local ok, dist = inFOV(head.Position)
-				if ok and wallCheck(head, char) then
-					if dist < bestDist then
-						bestDist = dist
-						bestHead = head
-					end
+				if ok and wallCheck(head, char) and dist < bestDist then
+					bestDist = dist
+					best = head
 				end
 			end
 		end
 	end
 
-	return bestHead
+	return best
 end
 
 -------------------------------------------------
--- 메인 루프 (속도 기반 에임)
+-- 메인 루프
 -------------------------------------------------
 RunService.RenderStepped:Connect(function(dt)
 	FOV.Position = Vector2.new(
-		Camera.ViewportSize.X / 2,
-		Camera.ViewportSize.Y / 2
+		Camera.ViewportSize.X/2,
+		Camera.ViewportSize.Y/2
 	)
+	FOV.Radius = FOV_RADIUS
 
 	if not AIMBOT then
 		FOV.Color = Color3.fromRGB(255,0,0)
@@ -126,12 +154,7 @@ RunService.RenderStepped:Connect(function(dt)
 	local target = getTarget()
 	if target then
 		FOV.Color = Color3.fromRGB(0,255,0)
-
-		local targetCF = CFrame.new(
-			Camera.CFrame.Position,
-			target.Position
-		)
-
+		local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
 		local alpha = math.clamp(AIM_SPEED * dt, 0, 1)
 		Camera.CFrame = Camera.CFrame:Lerp(targetCF, alpha)
 	else
@@ -140,26 +163,44 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 
 -------------------------------------------------
--- 버튼 이벤트
+-- 버튼
 -------------------------------------------------
 aimbotBtn.MouseButton1Click:Connect(function()
 	AIMBOT = not AIMBOT
-	if AIMBOT then
-		aimbotBtn.Text = "AIMBOT : ON"
-		aimbotBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
-	else
-		aimbotBtn.Text = "AIMBOT : OFF"
-		aimbotBtn.BackgroundColor3 = Color3.fromRGB(120,0,0)
-	end
+	aimbotBtn.Text = AIMBOT and "AIMBOT : ON" or "AIMBOT : OFF"
 end)
 
 wallBtn.MouseButton1Click:Connect(function()
 	WALLCHECK = not WALLCHECK
-	if WALLCHECK then
-		wallBtn.Text = "WALLCHECK : ON"
-		wallBtn.BackgroundColor3 = Color3.fromRGB(0,120,0)
-	else
-		wallBtn.Text = "WALLCHECK : OFF"
-		wallBtn.BackgroundColor3 = Color3.fromRGB(120,120,0)
+	wallBtn.Text = WALLCHECK and "WALLCHECK : ON" or "WALLCHECK : OFF"
+end)
+
+-------------------------------------------------
+-- 슬라이더 드래그
+-------------------------------------------------
+local dragging = false
+
+sliderKnob.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local x = math.clamp(
+			(input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X,
+			0, 1
+		)
+
+		sliderKnob.Position = UDim2.new(x,0,0.5,0)
+		FOV_RADIUS = math.floor(FOV_MIN + (FOV_MAX - FOV_MIN) * x)
+		sliderText.Text = "FOV : "..FOV_RADIUS
 	end
 end)
