@@ -8,24 +8,35 @@ local LP = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 -------------------------------------------------
--- 설정 (여기 건드리면 체감 확 달라짐)
+-- 설정값
 -------------------------------------------------
 local FOV_RADIUS = 120
-local SMOOTHNESS = 0.08 -- 0에 가까울수록 핵
+local AIM_SPEED = 250   -- 🔥 10 ~ 300 이상 가능
 local AIMBOT = false
+local WALLCHECK = true
 
 -------------------------------------------------
 -- GUI
 -------------------------------------------------
 local gui = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
 
-local btn = Instance.new("TextButton", gui)
-btn.Size = UDim2.new(0,180,0,55)
-btn.Position = UDim2.new(0.05,0,0.5,0)
-btn.Text = "AIMBOT : OFF"
-btn.TextScaled = true
-btn.BackgroundColor3 = Color3.fromRGB(120,0,0)
-btn.TextColor3 = Color3.new(1,1,1)
+-- AIMBOT 버튼
+local aimbotBtn = Instance.new("TextButton", gui)
+aimbotBtn.Size = UDim2.new(0,180,0,55)
+aimbotBtn.Position = UDim2.new(0.05,0,0.45,0)
+aimbotBtn.Text = "AIMBOT : OFF"
+aimbotBtn.TextScaled = true
+aimbotBtn.BackgroundColor3 = Color3.fromRGB(120,0,0)
+aimbotBtn.TextColor3 = Color3.new(1,1,1)
+
+-- WallCheck 버튼
+local wallBtn = Instance.new("TextButton", gui)
+wallBtn.Size = UDim2.new(0,180,0,45)
+wallBtn.Position = UDim2.new(0.05,0,0.45,60)
+wallBtn.Text = "WALLCHECK : ON"
+wallBtn.TextScaled = true
+wallBtn.BackgroundColor3 = Color3.fromRGB(0,120,0)
+wallBtn.TextColor3 = Color3.new(1,1,1)
 
 -------------------------------------------------
 -- FOV 원
@@ -39,9 +50,13 @@ FOV.Color = Color3.fromRGB(255,0,0)
 FOV.Visible = true
 
 -------------------------------------------------
--- 유틸
+-- 유틸 함수
 -------------------------------------------------
 local function wallCheck(head, char)
+	if not WALLCHECK then
+		return true
+	end
+
 	local origin = Camera.CFrame.Position
 	local dir = head.Position - origin
 
@@ -53,24 +68,27 @@ local function wallCheck(head, char)
 	return Workspace:Raycast(origin, dir, params) == nil
 end
 
-local function inFOV(pos)
-	local screen, onScreen = Camera:WorldToViewportPoint(pos)
+local function inFOV(worldPos)
+	local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
 	if not onScreen then return false end
 
-	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-	local dist = (Vector2.new(screen.X, screen.Y) - center).Magnitude
+	local center = Vector2.new(
+		Camera.ViewportSize.X / 2,
+		Camera.ViewportSize.Y / 2
+	)
+
+	local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
 	return dist <= FOV_RADIUS, dist
 end
 
 -------------------------------------------------
--- 타겟 고정 시스템
+-- 타겟 탐색
 -------------------------------------------------
-local lockedTarget = nil
+local function getTarget()
+	local bestHead = nil
+	local bestDist = math.huge
 
-local function getBestTarget()
-	local best, bestDist = nil, math.huge
-
-	for _,p in pairs(Players:GetPlayers()) do
+	for _, p in pairs(Players:GetPlayers()) do
 		if p ~= LP and p.Character then
 			local char = p.Character
 			local head = char:FindFirstChild("Head")
@@ -81,61 +99,67 @@ local function getBestTarget()
 				if ok and wallCheck(head, char) then
 					if dist < bestDist then
 						bestDist = dist
-						best = head
+						bestHead = head
 					end
 				end
 			end
 		end
 	end
 
-	return best
+	return bestHead
 end
 
 -------------------------------------------------
--- 메인 루프 (핵심)
+-- 메인 루프 (속도 기반 에임)
 -------------------------------------------------
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(dt)
 	FOV.Position = Vector2.new(
-		Camera.ViewportSize.X/2,
-		Camera.ViewportSize.Y/2
+		Camera.ViewportSize.X / 2,
+		Camera.ViewportSize.Y / 2
 	)
 
 	if not AIMBOT then
 		FOV.Color = Color3.fromRGB(255,0,0)
-		lockedTarget = nil
 		return
 	end
 
-	-- 타겟 유지 or 재탐색
-	if not lockedTarget or not lockedTarget.Parent then
-		lockedTarget = getBestTarget()
-	end
-
-	if lockedTarget then
+	local target = getTarget()
+	if target then
 		FOV.Color = Color3.fromRGB(0,255,0)
 
 		local targetCF = CFrame.new(
 			Camera.CFrame.Position,
-			lockedTarget.Position
+			target.Position
 		)
 
-		Camera.CFrame = Camera.CFrame:Lerp(targetCF, SMOOTHNESS)
+		local alpha = math.clamp(AIM_SPEED * dt, 0, 1)
+		Camera.CFrame = Camera.CFrame:Lerp(targetCF, alpha)
 	else
 		FOV.Color = Color3.fromRGB(255,0,0)
 	end
 end)
 
 -------------------------------------------------
--- 버튼 토글
+-- 버튼 이벤트
 -------------------------------------------------
-btn.MouseButton1Click:Connect(function()
+aimbotBtn.MouseButton1Click:Connect(function()
 	AIMBOT = not AIMBOT
-
 	if AIMBOT then
-		btn.Text = "AIMBOT : ON"
-		btn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+		aimbotBtn.Text = "AIMBOT : ON"
+		aimbotBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
 	else
-		btn.Text = "AIMBOT : OFF"
-		btn.BackgroundColor3 = Color3.fromRGB(120,0,0)
+		aimbotBtn.Text = "AIMBOT : OFF"
+		aimbotBtn.BackgroundColor3 = Color3.fromRGB(120,0,0)
+	end
+end)
+
+wallBtn.MouseButton1Click:Connect(function()
+	WALLCHECK = not WALLCHECK
+	if WALLCHECK then
+		wallBtn.Text = "WALLCHECK : ON"
+		wallBtn.BackgroundColor3 = Color3.fromRGB(0,120,0)
+	else
+		wallBtn.Text = "WALLCHECK : OFF"
+		wallBtn.BackgroundColor3 = Color3.fromRGB(120,120,0)
 	end
 end)
