@@ -1,41 +1,79 @@
-# Compiled Lua sources
-luac.out
+-- LocalScript (StarterGui)
 
-# luarocks build files
-*.src.rock
-*.zip
-*.tar.gz
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Workspace = game:GetService("Workspace")
 
-# Object files
-*.o
-*.os
-*.ko
-*.obj
-*.elf
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-# Precompiled Headers
-*.gch
-*.pch
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 160, 0, 50)
+button.Position = UDim2.new(0.05, 0, 0.5, 0)
+button.Text = "가시 대상 에임"
+button.TextScaled = true
+button.BackgroundColor3 = Color3.fromRGB(40,40,40)
+button.TextColor3 = Color3.new(1,1,1)
+button.Parent = gui
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.def
-*.exp
+-- 벽 체크 함수
+local function isVisible(targetHead, targetCharacter)
+	local origin = Camera.CFrame.Position
+	local direction = (targetHead.Position - origin)
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	rayParams.FilterDescendantsInstances = {
+		LocalPlayer.Character,
+		targetCharacter
+	}
+	rayParams.IgnoreWater = true
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+	local result = Workspace:Raycast(origin, direction, rayParams)
 
+	-- 중간에 뭔가 맞았으면 벽
+	if result then
+		return false
+	end
+
+	return true
+end
+
+-- 가장 가까운 + 벽 안 막힌 플레이어 찾기
+local function getClosestVisibleHead()
+	local closestHead = nil
+	local shortestDistance = math.huge
+
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local char = player.Character
+			local head = char:FindFirstChild("Head")
+			local humanoid = char:FindFirstChild("Humanoid")
+
+			if head and humanoid and humanoid.Health > 0 then
+				if isVisible(head, char) then
+					local dist = (head.Position - Camera.CFrame.Position).Magnitude
+					if dist < shortestDistance then
+						shortestDistance = dist
+						closestHead = head
+					end
+				end
+			end
+		end
+	end
+
+	return closestHead
+end
+
+-- 버튼 클릭
+button.MouseButton1Click:Connect(function()
+	local head = getClosestVisibleHead()
+	if head then
+		Camera.CFrame = CFrame.new(
+			Camera.CFrame.Position,
+			head.Position
+		)
+	end
+end)
