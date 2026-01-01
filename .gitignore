@@ -1,79 +1,141 @@
 -- LocalScript (StarterGui)
 
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
+local LP = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-------------------------------------------------
+-- 설정 (여기 건드리면 체감 확 달라짐)
+-------------------------------------------------
+local FOV_RADIUS = 120
+local SMOOTHNESS = 0.08 -- 0에 가까울수록 핵
+local AIMBOT = false
+
+-------------------------------------------------
 -- GUI
-local gui = Instance.new("ScreenGui")
-gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-------------------------------------------------
+local gui = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 160, 0, 50)
-button.Position = UDim2.new(0.05, 0, 0.5, 0)
-button.Text = "가시 대상 에임"
-button.TextScaled = true
-button.BackgroundColor3 = Color3.fromRGB(40,40,40)
-button.TextColor3 = Color3.new(1,1,1)
-button.Parent = gui
+local btn = Instance.new("TextButton", gui)
+btn.Size = UDim2.new(0,180,0,55)
+btn.Position = UDim2.new(0.05,0,0.5,0)
+btn.Text = "AIMBOT : OFF"
+btn.TextScaled = true
+btn.BackgroundColor3 = Color3.fromRGB(120,0,0)
+btn.TextColor3 = Color3.new(1,1,1)
 
--- 벽 체크 함수
-local function isVisible(targetHead, targetCharacter)
+-------------------------------------------------
+-- FOV 원
+-------------------------------------------------
+local FOV = Drawing.new("Circle")
+FOV.Radius = FOV_RADIUS
+FOV.Thickness = 2
+FOV.NumSides = 64
+FOV.Filled = false
+FOV.Color = Color3.fromRGB(255,0,0)
+FOV.Visible = true
+
+-------------------------------------------------
+-- 유틸
+-------------------------------------------------
+local function wallCheck(head, char)
 	local origin = Camera.CFrame.Position
-	local direction = (targetHead.Position - origin)
+	local dir = head.Position - origin
 
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-	rayParams.FilterDescendantsInstances = {
-		LocalPlayer.Character,
-		targetCharacter
-	}
-	rayParams.IgnoreWater = true
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+	params.FilterDescendantsInstances = {LP.Character, char}
+	params.IgnoreWater = true
 
-	local result = Workspace:Raycast(origin, direction, rayParams)
-
-	-- 중간에 뭔가 맞았으면 벽
-	if result then
-		return false
-	end
-
-	return true
+	return Workspace:Raycast(origin, dir, params) == nil
 end
 
--- 가장 가까운 + 벽 안 막힌 플레이어 찾기
-local function getClosestVisibleHead()
-	local closestHead = nil
-	local shortestDistance = math.huge
+local function inFOV(pos)
+	local screen, onScreen = Camera:WorldToViewportPoint(pos)
+	if not onScreen then return false end
 
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			local char = player.Character
+	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+	local dist = (Vector2.new(screen.X, screen.Y) - center).Magnitude
+	return dist <= FOV_RADIUS, dist
+end
+
+-------------------------------------------------
+-- 타겟 고정 시스템
+-------------------------------------------------
+local lockedTarget = nil
+
+local function getBestTarget()
+	local best, bestDist = nil, math.huge
+
+	for _,p in pairs(Players:GetPlayers()) do
+		if p ~= LP and p.Character then
+			local char = p.Character
 			local head = char:FindFirstChild("Head")
-			local humanoid = char:FindFirstChild("Humanoid")
+			local hum = char:FindFirstChild("Humanoid")
 
-			if head and humanoid and humanoid.Health > 0 then
-				if isVisible(head, char) then
-					local dist = (head.Position - Camera.CFrame.Position).Magnitude
-					if dist < shortestDistance then
-						shortestDistance = dist
-						closestHead = head
+			if head and hum and hum.Health > 0 then
+				local ok, dist = inFOV(head.Position)
+				if ok and wallCheck(head, char) then
+					if dist < bestDist then
+						bestDist = dist
+						best = head
 					end
 				end
 			end
 		end
 	end
 
-	return closestHead
+	return best
 end
 
--- 버튼 클릭
-button.MouseButton1Click:Connect(function()
-	local head = getClosestVisibleHead()
-	if head then
-		Camera.CFrame = CFrame.new(
+-------------------------------------------------
+-- 메인 루프 (핵심)
+-------------------------------------------------
+RunService.RenderStepped:Connect(function()
+	FOV.Position = Vector2.new(
+		Camera.ViewportSize.X/2,
+		Camera.ViewportSize.Y/2
+	)
+
+	if not AIMBOT then
+		FOV.Color = Color3.fromRGB(255,0,0)
+		lockedTarget = nil
+		return
+	end
+
+	-- 타겟 유지 or 재탐색
+	if not lockedTarget or not lockedTarget.Parent then
+		lockedTarget = getBestTarget()
+	end
+
+	if lockedTarget then
+		FOV.Color = Color3.fromRGB(0,255,0)
+
+		local targetCF = CFrame.new(
 			Camera.CFrame.Position,
-			head.Position
+			lockedTarget.Position
 		)
+
+		Camera.CFrame = Camera.CFrame:Lerp(targetCF, SMOOTHNESS)
+	else
+		FOV.Color = Color3.fromRGB(255,0,0)
+	end
+end)
+
+-------------------------------------------------
+-- 버튼 토글
+-------------------------------------------------
+btn.MouseButton1Click:Connect(function()
+	AIMBOT = not AIMBOT
+
+	if AIMBOT then
+		btn.Text = "AIMBOT : ON"
+		btn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+	else
+		btn.Text = "AIMBOT : OFF"
+		btn.BackgroundColor3 = Color3.fromRGB(120,0,0)
 	end
 end)
