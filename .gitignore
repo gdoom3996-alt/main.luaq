@@ -1,174 +1,97 @@
--- LocalScript (StarterGui)
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
 
-local LP = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local HOMING_RANGE = 150
+local BULLET_SPEED = 120
+local TURN_RATE = 0.25 -- 높을수록 더 잘 따라감
 
--------------------------------------------------
--- 설정값
--------------------------------------------------
-local FOV_RADIUS = 120
-local FOV_MIN = 50
-local FOV_MAX = 300
+-- 가장 가까운 적 찾기
+local function getClosestTarget(fromPos, owner)
+	local closest
+	local shortest = HOMING_RANGE
 
-local AIM_SPEED = 250
-local AIMBOT = false
-local WALLCHECK = true
-
--------------------------------------------------
--- GUI
--------------------------------------------------
-local gui = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
-
--- AIMBOT 버튼
-local aimbotBtn = Instance.new("TextButton", gui)
-aimbotBtn.Size = UDim2.new(0,180,0,55)
-aimbotBtn.Position = UDim2.new(0.05,0,0.40,0)
-aimbotBtn.Text = "AIMBOT : OFF"
-aimbotBtn.TextScaled = true
-aimbotBtn.BackgroundColor3 = Color3.fromRGB(120,0,0)
-aimbotBtn.TextColor3 = Color3.new(1,1,1)
-
--- WallCheck 버튼
-local wallBtn = Instance.new("TextButton", gui)
-wallBtn.Size = UDim2.new(0,180,0,45)
-wallBtn.Position = UDim2.new(0.05,0,0.40,60)
-wallBtn.Text = "WALLCHECK : ON"
-wallBtn.TextScaled = true
-wallBtn.BackgroundColor3 = Color3.fromRGB(0,120,0)
-wallBtn.TextColor3 = Color3.new(1,1,1)
-
--------------------------------------------------
--- FOV 원
--------------------------------------------------
-local FOV = Drawing.new("Circle")
-FOV.Radius = FOV_RADIUS
-FOV.Thickness = 2
-FOV.NumSides = 64
-FOV.Filled = false
-FOV.Color = Color3.fromRGB(255,0,0)
-FOV.Visible = true
-
--------------------------------------------------
--- 유틸
--------------------------------------------------
-local function wallCheck(head, char)
-	if not WALLCHECK then return true end
-
-	local origin = Camera.CFrame.Position
-	local dir = head.Position - origin
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Blacklist
-	params.FilterDescendantsInstances = {LP.Character, char}
-	params.IgnoreWater = true
-
-	return Workspace:Raycast(origin, dir, params) == nil
-end
-
-local function inFOV(pos)
-	local screen, onScreen = Camera:WorldToViewportPoint(pos)
-	if not onScreen then return false end
-
-	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-	local dist = (Vector2.new(screen.X, screen.Y) - center).Magnitude
-	return dist <= FOV_RADIUS, dist
-end
-
--------------------------------------------------
--- 타겟
--------------------------------------------------
-local function getTarget()
-	local best, bestDist = nil, math.huge
-
-	for _,p in pairs(Players:GetPlayers()) do
-		if p ~= LP and p.Character then
-			local char = p.Character
-			local head = char:FindFirstChild("Head")
-			local hum = char:FindFirstChild("Humanoid")
-
-			if head and hum and hum.Health > 0 then
-				local ok, dist = inFOV(head.Position)
-				if ok and wallCheck(head, char) and dist < bestDist then
-					bestDist = dist
-					best = head
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= owner and plr.Character then
+			local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+			local hum = plr.Character:FindFirstChild("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				local dist = (hrp.Position - fromPos).Magnitude
+				if dist < shortest then
+					shortest = dist
+					closest = hrp
 				end
 			end
 		end
 	end
 
-	return best
+	return closest
 end
 
--------------------------------------------------
--- 메인 루프
--------------------------------------------------
-RunService.RenderStepped:Connect(function(dt)
-	FOV.Position = Vector2.new(
-		Camera.ViewportSize.X/2,
-		Camera.ViewportSize.Y/2
+-- 총알 생성
+local function createHomingBullet(origin, direction, owner)
+	local bullet = Instance.new("Part")
+	bullet.Size = Vector3.new(0.4, 0.4, 0.4)
+	bullet.Shape = Enum.PartType.Ball
+	bullet.Material = Enum.Material.Neon
+	bullet.Color = Color3.fromRGB(255, 80, 80)
+	bullet.CanCollide = false
+	bullet.Position = origin
+	bullet.Parent = workspace
+
+	local vel = Instance.new("BodyVelocity")
+	vel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+	vel.Velocity = direction * BULLET_SPEED
+	vel.Parent = bullet
+
+	local target
+
+	local connection
+	connection = RunService.Heartbeat:Connect(function()
+		if not bullet or not bullet.Parent then
+			connection:Disconnect()
+			return
+		end
+
+		-- 타겟 없으면 새로 탐색
+		if not target or not target.Parent then
+			target = getClosestTarget(bullet.Position, owner)
+		end
+
+		-- 타겟이 있으면 방향 보정
+		if target then
+			local desiredDir = (target.Position - bullet.Position).Unit
+			local currentDir = vel.Velocity.Unit
+
+			local newDir = currentDir:Lerp(desiredDir, TURN_RATE)
+			vel.Velocity = newDir * BULLET_SPEED
+		end
+	end)
+
+	-- 수명 제한
+	game.Debris:AddItem(bullet, 5)
+end
+
+-- RemoteEvent 연결
+game.ReplicatedStorage.Fire.OnServerEvent:Connect(function(player, origin, direction)
+	createHomingBullet(origin, direction, player)
+end)
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+local tool = script.Parent
+
+tool.Activated:Connect(function()
+	local char = player.Character
+	if not char then return end
+
+	local hrp = char:WaitForChild("HumanoidRootPart")
+	local dir = (mouse.Hit.Position - hrp.Position).Unit
+
+	game.ReplicatedStorage.Fire:FireServer(
+		hrp.Position + dir * 2,
+		dir
 	)
-	FOV.Radius = FOV_RADIUS
-
-	if not AIMBOT then
-		FOV.Color = Color3.fromRGB(255,0,0)
-		return
-	end
-
-	local target = getTarget()
-	if target then
-		FOV.Color = Color3.fromRGB(0,255,0)
-		local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
-		local alpha = math.clamp(AIM_SPEED * dt, 0, 1)
-		Camera.CFrame = Camera.CFrame:Lerp(targetCF, alpha)
-	else
-		FOV.Color = Color3.fromRGB(255,0,0)
-	end
 end)
 
--------------------------------------------------
--- 버튼
--------------------------------------------------
-aimbotBtn.MouseButton1Click:Connect(function()
-	AIMBOT = not AIMBOT
-	aimbotBtn.Text = AIMBOT and "AIMBOT : ON" or "AIMBOT : OFF"
-end)
-
-wallBtn.MouseButton1Click:Connect(function()
-	WALLCHECK = not WALLCHECK
-	wallBtn.Text = WALLCHECK and "WALLCHECK : ON" or "WALLCHECK : OFF"
-end)
-
--------------------------------------------------
--- 슬라이더 드래그
--------------------------------------------------
-local dragging = false
-
-sliderKnob.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local x = math.clamp(
-			(input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X,
-			0, 1
-		)
-
-		sliderKnob.Position = UDim2.new(x,0,0.5,0)
-		FOV_RADIUS = math.floor(FOV_MIN + (FOV_MAX - FOV_MIN) * x)
-		sliderText.Text = "FOV : "..FOV_RADIUS
-	end
-end)
+TURN_RATE = 0.3   -- 미친듯이 따라감
+TURN_RATE = 0.05  -- 부드러운 유도
+HOMING_RANGE = 300 -- 범위 증가
