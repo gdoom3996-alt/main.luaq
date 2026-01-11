@@ -4,7 +4,7 @@ local Players = game:GetService("Players")
 
 -- 관리자 목록 (닉네임 정확히)
 local ADMINS = {
-	["sss111kka"] = true, -- 너 닉네임
+	["eee3331110003"] = true, -- 너 닉네임
 	-- ["AdminName2"] = true
 }
 
