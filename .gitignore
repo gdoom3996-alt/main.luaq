@@ -1,38 +1,15 @@
--- ServerScriptService > KillCommand.lua
-
 local Players = game:GetService("Players")
 
--- 관리자 목록 (닉네임 정확히)
-local ADMINS = {
-	["eee3331110003"] = true, -- 너 닉네임
-	-- ["AdminName2"] = true
-}
-
--- 플레이어 이름으로 찾기
-local function getPlayerByName(name)
-	name = name:lower()
-	for _, player in pairs(Players:GetPlayers()) do
-		if player.Name:lower():sub(1, #name) == name then
-			return player
-		end
-	end
-	return nil
-end
-
 Players.PlayerAdded:Connect(function(player)
-	player.Chatted:Connect(function(msg)
-		-- 관리자 체크
-		if not ADMINS[player.Name] then
-			return
-		end
+	player.Chatted:Connect(function(message)
+		local args = string.split(message, " ")
 
-		-- 명령어 분리
-		local args = msg:split(" ")
 		if args[1] == ";kill" and args[2] then
-			local target = getPlayerByName(args[2])
+			local targetName = args[2]
+			local targetPlayer = Players:FindFirstChild(targetName)
 
-			if target and target.Character then
-				local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+			if targetPlayer and targetPlayer.Character then
+				local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
 				if humanoid then
 					humanoid.Health = 0
 				end
