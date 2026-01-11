@@ -1,97 +1,42 @@
+-- ServerScriptService > KillCommand.lua
+
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
-local HOMING_RANGE = 150
-local BULLET_SPEED = 120
-local TURN_RATE = 0.25 -- 높을수록 더 잘 따라감
+-- 관리자 목록 (닉네임 정확히)
+local ADMINS = {
+	["sss111kka"] = true, -- 너 닉네임
+	-- ["AdminName2"] = true
+}
 
--- 가장 가까운 적 찾기
-local function getClosestTarget(fromPos, owner)
-	local closest
-	local shortest = HOMING_RANGE
-
-	for _, plr in pairs(Players:GetPlayers()) do
-		if plr ~= owner and plr.Character then
-			local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-			local hum = plr.Character:FindFirstChild("Humanoid")
-			if hrp and hum and hum.Health > 0 then
-				local dist = (hrp.Position - fromPos).Magnitude
-				if dist < shortest then
-					shortest = dist
-					closest = hrp
-				end
-			end
+-- 플레이어 이름으로 찾기
+local function getPlayerByName(name)
+	name = name:lower()
+	for _, player in pairs(Players:GetPlayers()) do
+		if player.Name:lower():sub(1, #name) == name then
+			return player
 		end
 	end
-
-	return closest
+	return nil
 end
 
--- 총알 생성
-local function createHomingBullet(origin, direction, owner)
-	local bullet = Instance.new("Part")
-	bullet.Size = Vector3.new(0.4, 0.4, 0.4)
-	bullet.Shape = Enum.PartType.Ball
-	bullet.Material = Enum.Material.Neon
-	bullet.Color = Color3.fromRGB(255, 80, 80)
-	bullet.CanCollide = false
-	bullet.Position = origin
-	bullet.Parent = workspace
-
-	local vel = Instance.new("BodyVelocity")
-	vel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	vel.Velocity = direction * BULLET_SPEED
-	vel.Parent = bullet
-
-	local target
-
-	local connection
-	connection = RunService.Heartbeat:Connect(function()
-		if not bullet or not bullet.Parent then
-			connection:Disconnect()
+Players.PlayerAdded:Connect(function(player)
+	player.Chatted:Connect(function(msg)
+		-- 관리자 체크
+		if not ADMINS[player.Name] then
 			return
 		end
 
-		-- 타겟 없으면 새로 탐색
-		if not target or not target.Parent then
-			target = getClosestTarget(bullet.Position, owner)
-		end
+		-- 명령어 분리
+		local args = msg:split(" ")
+		if args[1] == ";kill" and args[2] then
+			local target = getPlayerByName(args[2])
 
-		-- 타겟이 있으면 방향 보정
-		if target then
-			local desiredDir = (target.Position - bullet.Position).Unit
-			local currentDir = vel.Velocity.Unit
-
-			local newDir = currentDir:Lerp(desiredDir, TURN_RATE)
-			vel.Velocity = newDir * BULLET_SPEED
+			if target and target.Character then
+				local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.Health = 0
+				end
+			end
 		end
 	end)
-
-	-- 수명 제한
-	game.Debris:AddItem(bullet, 5)
-end
-
--- RemoteEvent 연결
-game.ReplicatedStorage.Fire.OnServerEvent:Connect(function(player, origin, direction)
-	createHomingBullet(origin, direction, player)
 end)
-local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
-local tool = script.Parent
-
-tool.Activated:Connect(function()
-	local char = player.Character
-	if not char then return end
-
-	local hrp = char:WaitForChild("HumanoidRootPart")
-	local dir = (mouse.Hit.Position - hrp.Position).Unit
-
-	game.ReplicatedStorage.Fire:FireServer(
-		hrp.Position + dir * 2,
-		dir
-	)
-end)
-
-TURN_RATE = 0.3   -- 미친듯이 따라감
-TURN_RATE = 0.05  -- 부드러운 유도
-HOMING_RANGE = 300 -- 범위 증가
