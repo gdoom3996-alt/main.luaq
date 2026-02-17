@@ -1,7 +1,7 @@
-local a = 500
+local a = 999
 
 local player = game.Players.LocalPlayer
+local character = player.Character
+local humanoid = character:FindFirstChild("Humanoid")
 
 humanoid.MaxHealth = a
-humanoid.Health = a
-end
