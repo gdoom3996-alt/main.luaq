@@ -1,7 +1,65 @@
-local a = 999
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-local player = game.Players.LocalPlayer
-local character = player.Character
-local humanoid = character:FindFirstChild("Humanoid")
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
 
-humanoid.MaxHealth = a
+-- 설정값
+local AIM_RADIUS = 150
+local AIM_STRENGTH = 10
+
+-- 가장 가까운 적 찾기 (헤드 우선 + 팀 구분)
+local function getClosestTarget()
+	local closestPart = nil
+	local shortest = AIM_RADIUS
+
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= player
+			and plr.Team ~= player.Team -- 팀 구분
+			and plr.Character
+		then
+			local head = plr.Character:FindFirstChild("Head")
+			local root = plr.Character:FindFirstChild("HumanoidRootPart")
+
+			-- 헤드 우선
+			local targetPart = head or root
+			if targetPart then
+				
+				local pos, visible = camera:WorldToViewportPoint(targetPart.Position)
+				
+				if visible then
+					local center = Vector2.new(
+						camera.ViewportSize.X / 2,
+						camera.ViewportSize.Y / 2
+					)
+
+					local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+
+					if dist < shortest then
+						shortest = dist
+						closestPart = targetPart
+					end
+				end
+			end
+		end
+	end
+
+	return closestPart
+end
+
+-- 에임 어시스트 실행
+RunService.RenderStepped:Connect(function()
+	if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+		return
+	end
+
+	local target = getClosestTarget()
+	if not target then return end
+
+	local camPos = camera.CFrame.Position
+	local direction = (target.Position - camPos).Unit
+	local targetCF = CFrame.new(camPos, camPos + direction)
+
+	camera.CFrame = camera.CFrame:Lerp(targetCF, AIM_STRENGTH)
+end)
