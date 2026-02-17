@@ -1,77 +1,12 @@
-local player = game.Players.LocalPlayer
-local gui = Instance.new("ScreenGui")
-gui.Name = "AimAssistUI"
-gui.Parent = player:WaitForChild("PlayerGui")
+local rng = math.random(1,9)
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 1000, 0, 100)
-button.Position = UDim2.new(0.5, -500, 1, -120) -- 화면 아래 중앙
-button.BackgroundColor3 = Color3.fromRGB(30,30,30)
-button.TextColor3 = Color3.fromRGB(255,255,255)
-button.TextScaled = true
-button.Text = "에임 어시스트: OFF"
-button.Parent = gui
-local aimAssistEnabled = false
+-- 헤드샷 우선 판정
+if rng <= 10 then
+    damage = HEADSHOT_DAMAGE
+    hitPart = "Head"
 
-button.MouseButton1Click:Connect(function()
-    aimAssistEnabled = not aimAssistEnabled
-
-    if aimAssistEnabled then
-        button.Text = "에임 어시스트: ON"
-        button.BackgroundColor3 = Color3.fromRGB(0,170,255)
-    else
-        button.Text = "에임 어시스트: OFF"
-        button.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    end
-end)
-local RunService = game:GetService("RunService")
-local camera = workspace.CurrentCamera
-
-local MAX_DISTANCE = 120
-local ASSIST_STRENGTH = 10.07   -- 낮을수록 약함 (0.03~0.1 추천)
-local MAX_ANGLE = math.rad(8)  -- 크로스헤어 근처만 보정
-
-function getClosestTarget()
-    local closest = nil
-    local smallestAngle = MAX_ANGLE
-
-    for _, plr in pairs(game.Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local targetPos = plr.Character.HumanoidRootPart.Position
-            local dirToTarget = (targetPos - camera.CFrame.Position).Unit
-
-            local angle = math.acos(camera.CFrame.LookVector:Dot(dirToTarget))
-            local dist = (targetPos - camera.CFrame.Position).Magnitude
-
-            if angle < smallestAngle and dist < MAX_DISTANCE then
-                smallestAngle = angle
-                closest = plr.Character
-            end
-        end
-    end
-
-    return closest
-end
-
-
-RunService.RenderStepped:Connect(function()
-    if not aimAssistEnabled then return end
-
-    local target = getClosestTarget()
-    if not target then return end
-
-    local targetPos = target.HumanoidRootPart.Position
-    local camPos = camera.CFrame.Position
-
-    local desiredDir = (targetPos - camPos).Unit
-    local currentDir = camera.CFrame.LookVector
-    local newDir = currentDir:Lerp(desiredDir, ASSIST_STRENGTH)
-
-    camera.CFrame = CFrame.new(camPos, camPos + newDir)
-end)
-local head = character:FindFirstChild("Head")
-if head then
-    head.Size = Vector3.nVect(20,20,20) -- 테스트용 크게
-    head.Transparency = 0.5
-    end
+-- 무조건 명중
+elseif rng <= 40 then -- 30% (10 + 30)
+    damage = NORMAL_DAMAGE
+    forceHit = true
 end
