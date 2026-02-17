@@ -1,17 +1,7 @@
-game.Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(character)
+local a = 500
 
-        local humanoid = character:WaitForChild("Humanoid")
-        local lastHealth = humanoid.Health
+local player = game.Players.LocalPlayer
 
-        humanoid.HealthChanged:Connect(function(newHealth)
-
-            if newHealth < lastHealth then
-                humanoid.Health = math.min(newHealth + 100, humanoid.MaxHealth)
-            end
-
-            lastHealth = humanoid.Health
-        end)
-
-    end)
-end)
+humanoid.MaxHealth = a
+humanoid.Health = a
+end
