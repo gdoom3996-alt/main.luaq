@@ -5,3 +5,18 @@ player.CharacterAdded:Connect(function(char)
     humanoid.MaxHealth = 99999
     humanoid.Health = 99999
 end)
+
+local tool = script.Parent
+
+tool.Activated:Connect(function()
+    local character = tool.Parent
+    local humanoid = character:FindFirstChild("Humanoid")
+    
+    if humanoid then
+        humanoid:TakeDamage(1)
+    end
+end)
+
+local damage = 1
+
+humanoid:TakeDamage(1)
