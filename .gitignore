@@ -1,12 +1,28 @@
-local rng = math.random(1,9)
+local Players = game:GetService("Players")
 
--- 헤드샷 우선 판정
-if rng <= 10 then
-    damage = HEADSHOT_DAMAGE
-    hitPart = "Head"
+local function onCharacterAdded(character)
+    local humanoid = character:WaitForChild("Humanoid")
 
--- 무조건 명중
-elseif rng <= 40 then -- 30% (10 + 30)
-    damage = NORMAL_DAMAGE
-    forceHit = true
+    local lastHealth = humanoid.Health
+
+    humanoid.HealthChanged:Connect(function(newHealth)
+        if newHealth < lastHealth then
+            -- 어떤 방식의 데미지든 무조건 1만 감소
+            humanoid.Health = lastHealth - 1
+        end
+        lastHealth = humanoid.Health
+    end)
+
+    -- 혹시 MaxHealth 기반 퍼센트 공격 대비
+    humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(function()
+        if humanoid.Health > humanoid.MaxHealth then
+            humanoid.Health = humanoid.MaxHealth
+        end
+    end)
 end
+
+local function onPlayerAdded(player)
+    player.CharacterAdded:Connect(onCharacterAdded)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
