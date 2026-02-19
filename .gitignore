@@ -1,28 +1,5 @@
-local Players = game:GetService("Players")
+local player = game.Players.LocalPlayer
+local stats = player:WaitForChild("leaderstats")
+local gold = stats:WaitForChild("Gold")
 
-local function onCharacterAdded(character)
-    local humanoid = character:WaitForChild("Humanoid")
-
-    local lastHealth = humanoid.Health
-
-    humanoid.HealthChanged:Connect(function(newHealth)
-        if newHealth < lastHealth then
-            -- 어떤 방식의 데미지든 무조건 1만 감소
-            humanoid.Health = lastHealth - 1
-        end
-        lastHealth = humanoid.Health
-    end)
-
-    -- 혹시 MaxHealth 기반 퍼센트 공격 대비
-    humanoid:GetPropertyChangedSignal("MaxHealth"):Connect(function()
-        if humanoid.Health > humanoid.MaxHealth then
-            humanoid.Health = humanoid.MaxHealth
-        end
-    end)
-end
-
-local function onPlayerAdded(player)
-    player.CharacterAdded:Connect(onCharacterAdded)
-end
-
-Players.PlayerAdded:Connect(onPlayerAdded)
+gold.Value = math.huge
